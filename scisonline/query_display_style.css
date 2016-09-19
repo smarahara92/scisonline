@@ -1,0 +1,45 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 7 Apr, 2015, 10:54:33 AM
+    Author     : nwlab
+*/
+
+.style30 {
+                color: #c2000d;
+                padding: 4px;
+                border: 1px solid green;
+                background-color: #F5F5F5;
+            }
+            .style31 {color: white}
+            .style32 {color: green}
+            .heading {
+                padding: 4px;
+                color: white;
+                background-color: #c2000d;
+                border: 1px solid green;
+            }
+            .border
+            {
+                background-color: #c2000d;
+            }
+            .pos_fixed
+            {
+                position:fixed;
+                bottom:0px;
+                background-color: #CCFFFF;
+                border-color: red;
+            }
+            .maintable {
+                border-collapse:collapse;
+                border: 1px solid green;
+                padding: 4px;
+            }
+            .cellpad {
+                padding: 4px;
+                border: 1px solid green;
+                background-color: #F5F5F5;
+            }

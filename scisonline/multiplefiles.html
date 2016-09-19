@@ -1,0 +1,43 @@
+<%@include file="checkValidity.jsp"%>
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title></title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    </head>
+    <body>
+       <form action="upload_file_multiple.jsp" method="post" enctype="multipart/form-data" name="form1" id="form1">
+   <center>
+   <table border="2">
+       <tr>
+               <td align="center"><b>Multiple file Upload</td>
+           </tr>
+       <tr>
+               <td>
+                       Specify file: <input name="file" type="file" id="file">
+                   <td>
+           </tr>
+           <tr>
+              <td>
+                     Specify file:<input name="file" type="file" id="file">
+                  </td>
+        <tr>
+                   <td>
+                      Specify file:<input name="file" type="file" id="file">
+                   </td>
+                 </tr>
+                 <tr>
+                    <td align="center">
+               <input type="submit" name="Submit" value="Submit files"/>
+                        </td>
+                 </tr>
+    </table>
+        </center>
+ </form>
+
+    </body>
+</html>

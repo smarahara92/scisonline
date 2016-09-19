@@ -1,0 +1,1041 @@
+<%-- 
+    Document   : programme_mang_uploadlink
+    Created on : Oct 20, 2013, 2:02:22 PM
+    Author     : veeru
+--%>
+<%@include file="checkValidity.jsp"%>
+<%@page import="java.util.Calendar"%>
+<%@page import="java.io.*"%>
+<%@page import ="javax.sql.*" %>
+<%@page import="java.sql.*" %>
+<%@include file="dbconnection.jsp"%>
+<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>JSP Page</title>
+    </head>
+    <body>
+        <%  int p, n, l, n1, m, cn, cn1 = 0, z = 0;
+            Calendar now = Calendar.getInstance();
+            System.out.println("Current date : " + (now.get(Calendar.MONTH) + 1)
+                    + "-"
+                    + now.get(Calendar.DATE)
+                    + "-"
+                    + now.get(Calendar.YEAR));
+            int month = now.get(Calendar.MONTH) + 1;
+            int cyear = now.get(Calendar.YEAR);
+            String pname;
+            Statement st = null;
+            String colName;
+            String colDataType;
+            st = con.createStatement();
+
+            String dataType[] = {"VARCHAR(100)", "INT", "DOUBLE", "TINYINT", "BIT"};
+            String coltype = "";
+            String colValue_string = "";
+            int colValue_int;
+            float colValue_float;
+
+            String colDataType1 = "";
+            String pname1 = (String) request.getAttribute("name1");
+            pname = pname1.replace('-', '_');
+            String year = (String) request.getAttribute("name2");
+            String saveFile = (String) request.getAttribute("filename");
+		
+            Savepoint pointOne =con.setSavepoint("pointOne");
+
+            Statement st1 = con.createStatement();
+
+            try {
+                if (pname1.equals("PhD") != true) {
+
+                    try {
+                        String realPath = getServletContext().getRealPath("/");
+
+                        File f1 = new File(realPath + "/" + saveFile);
+
+                        File f2 = new File("/var/lib/mysql/dcis_attendance_system/" + saveFile);
+			con.setAutoCommit(false);
+                            pointOne = con.setSavepoint("pointOne");
+                        /*
+                         *programmes insertion.
+                         * create programme_curriculumversions table.
+                         * create programme_year_curriculum with Sno column for dynamic column creation
+                         */
+
+                        pst = con.prepareStatement("create table if not exists " + pname1 + "_curriculumversions(Year int NOT NULL ,Curriculum_name varchar(200),primary key(Year))");
+
+                            pst.executeUpdate();
+                            pst = con.prepareStatement("insert ignore into " + pname1 + "_curriculumversions(Year,Curriculum_name)values(?,?)");
+                            pst.setInt(1, Integer.parseInt(year));
+                            pst.setString(2, pname1 + "_" + year + "_curriculum");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+
+
+                            /*
+                             * creating currrefer table.##########################starting########################################
+                             * 
+                             */
+                            pst = con.prepareStatement("DROP TABLE IF EXISTS " + pname1 + "_" + year + "_currrefer");
+                            pst.executeUpdate();
+                            pst = con.prepareStatement("create table if not exists " + pname1 + "_" + year + "_currrefer(Sno int NOT NULL, UNIQUE(Sno)) ");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+
+                            //add column dynamically**********************************************
+                            int k3 = 0;
+                            FileReader ff = new FileReader(f1);
+                            BufferedReader br = new BufferedReader(ff);
+
+                            String line = null, line1 = null;
+
+                            while ((line = br.readLine()) != null) {
+
+                                if (k3 > 1 && k3 < 3) {
+
+                                    String[] cval = line.split(",");
+
+                                    n = cval.length;
+
+                                    for (l = 0; l < n; l++) {
+                                        String originalString = cval[l];
+
+                                        int startIndex = originalString.indexOf("(");
+
+                                        int endIndex = originalString.indexOf(")");
+
+                                        colName = originalString.substring(0, startIndex);
+
+                                        colDataType = originalString.substring(startIndex + 1, endIndex);
+
+                                        if (colDataType.equalsIgnoreCase("varchar")) {
+
+                                            coltype = dataType[0];
+
+                                        } else if (colDataType.equalsIgnoreCase("int")) {
+
+                                            coltype = dataType[1];
+
+                                        } else if (colDataType.equalsIgnoreCase("FLOAT")) {
+
+                                            coltype = dataType[2];
+
+                                        } else if (colDataType.equalsIgnoreCase("boolean")) {
+
+                                            coltype = dataType[3];
+                                        }
+                                        if (coltype.equalsIgnoreCase("boolean")) {
+                                            pst = con.prepareStatement("Alter table " + pname1 + "_" + year + "_currrefer Add " + colName + " " + coltype + " DEFAULT '0'");
+
+                                            pst.executeUpdate();
+                                        } else {
+                                            pst = con.prepareStatement("Alter table " + pname1 + "_" + year + "_currrefer Add " + colName + " " + coltype + "");
+
+                                            pst.executeUpdate();
+                                        }
+                                    }
+                                }
+                                k3++;
+                            }
+                            /*
+                             * Update programme_year_currrefer table.
+                             */
+                            pst = con.prepareStatement("select * from " + pname1 + "_" + year + "_currrefer");
+                            ResultSet rs = pst.executeQuery();
+
+                            ResultSetMetaData metadata = rs.getMetaData();
+
+                            BufferedReader br1 = new BufferedReader(new FileReader(f1));
+
+                            int q = 0, k = 0, minSemValue;
+
+                            line1 = br1.readLine();
+
+                            line1 = br1.readLine();
+
+                            String[] minSem = line1.split(",");
+
+                            minSemValue = Integer.parseInt(minSem[0]);
+
+                            minSemValue = minSemValue + 1;
+
+                            while ((line1 = br1.readLine()) != null) {
+
+                                if (k > 0 && k < minSemValue) {
+
+                                    int o = 2;
+                                    String[] splits = line1.split(",");
+
+                                    n1 = splits.length;
+
+                                    for (m = 0; m < n1; m++) {
+
+                                        colDataType1 = metadata.getColumnTypeName(o);
+
+                                        //giving data type to columns..dynamically*******************
+                                        if (colDataType1.equalsIgnoreCase("varchar")) {
+
+                                            colValue_string = splits[m];
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_currrefer(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setString(1, colValue_string);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("integer")) {
+
+                                            colValue_int = Integer.parseInt(splits[m]);
+                                            colValue_string = splits[m];
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_currrefer(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setString(1, colValue_string);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("DOUBLE")) {
+
+                                            colValue_float = Float.parseFloat(splits[m]);
+                                            colValue_string = splits[m];
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_currrefer(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setString(1, colValue_string);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("TINYINT")) {
+
+                                            colValue_int = Integer.parseInt(splits[m]);
+                                            colValue_string = splits[m];
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_currrefer(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setString(1, colValue_string);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            o++;
+
+                                        }
+
+                                    }
+                                    q++;
+                                }
+
+                                k++;
+                            }
+
+                            pst = con.prepareStatement("ALTER TABLE " + pname1 + "_" + year + "_currrefer ADD PRIMARY KEY(Semester)");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+
+                            pst = con.prepareStatement("ALTER TABLE " + pname1 + "_" + year + "_currrefer DROP COLUMN Sno, DROP INDEX Sno");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+
+
+                            /*
+                             * ######################################ending###################################################################
+                             *
+                             *
+                             *
+                             *creating stream_year_curriculum table.###############################starting#################################### 
+                             */
+                            pst = con.prepareStatement("DROP TABLE IF EXISTS " + pname1 + "_" + year + "_curriculum");
+                            pst.executeUpdate();
+                            pst = con.prepareStatement("create table if not exists " + pname1 + "_" + year + "_curriculum(Sno int NOT NULL, UNIQUE(Sno))");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+
+                            // adding column to stream_year_curriculum table dynamically, by reading values from curriculum csv file.*******
+                            int k4 = 0;
+
+                            br1 = new BufferedReader(new FileReader(f1));
+
+                            String line3, line4;
+
+                            line3 = br1.readLine();
+
+                            line3 = br1.readLine();
+
+                            String semvalue[] = line3.split(",");
+
+                            int semvalue1 = Integer.parseInt(semvalue[0]);
+
+                            while ((line3 = br1.readLine()) != null) {
+
+                                if (k4 > semvalue1 && k4 < semvalue1 + 2) {
+
+                                    String[] cval1 = line3.split(",");//split line with ','
+
+                                    n = cval1.length;
+
+                                    for (l = 0; l < n; l++) {
+
+                                        String originalString = cval1[l];
+
+                                        int startIndex = originalString.indexOf("(");
+
+                                        int endIndex = originalString.indexOf(")");
+
+                                        colName = originalString.substring(0, startIndex);
+
+                                        colDataType = originalString.substring(startIndex + 1, endIndex);
+
+                                        if (colDataType.equalsIgnoreCase("varchar")) {
+
+                                            coltype = dataType[0];
+
+                                        } else if (colDataType.equalsIgnoreCase("int")) {
+
+                                            coltype = dataType[1];
+
+                                        } else if (colDataType.equalsIgnoreCase("FLOAT")) {
+
+                                            coltype = dataType[2];
+
+                                        } else if (colDataType.equalsIgnoreCase("boolean")) {
+
+                                            coltype = dataType[3];
+                                        }
+                                        if (coltype.equalsIgnoreCase("boolean")) {
+
+                                            pst = con.prepareStatement("Alter table " + pname1 + "_" + year + "_curriculum Add " + colName + " " + coltype + " DEFAULT '0'");
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            //st.executeUpdate(sql);
+                                        }
+                                        pst = con.prepareStatement("Alter table " + pname1 + "_" + year + "_curriculum Add " + colName + " " + coltype + "");
+                                        ri = pst.executeUpdate();
+                                        if (ri == 0) {
+                                            con.rollback(pointOne);
+
+                                        }
+
+                                        // st.executeUpdate(sql);
+                                    }
+                                }
+
+                                k4++;
+                            }
+
+                            //updating stream_year_curriculum table************************************************
+                            pst = con.prepareStatement("select * from " + pname1 + "_" + year + "_curriculum");
+
+                            ResultSet rs2 = pst.executeQuery();
+
+                            ResultSetMetaData metadata1 = rs2.getMetaData();
+                            BufferedReader br3 = new BufferedReader(new FileReader(f1));
+
+                            q = 0;
+                            k = 0;
+                            minSemValue = 0;
+
+                            line1 = br3.readLine();
+                            line1 = br3.readLine();
+
+                            minSem = line1.split(",");
+
+                            minSemValue = Integer.parseInt(minSem[0]);
+                            minSemValue = minSemValue + 1;
+
+                            while ((line1 = br3.readLine()) != null) {
+
+                                if (k > minSemValue) {
+
+                                    int o = 2;
+
+                                    String[] splits2 = line1.split(",");
+
+                                    n1 = splits2.length;
+
+                                    for (m = 0; m < n1; m++) {
+
+                                        colDataType1 = metadata1.getColumnTypeName(o);
+
+                                        if (colDataType1.equalsIgnoreCase("varchar")) {
+
+                                            colValue_string = splits2[m];
+
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_curriculum(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setString(1, colValue_string);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("integer")) {
+
+                                            colValue_int = Integer.parseInt(splits2[m]);
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_curriculum(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setInt(1, colValue_int);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("DOUBLE")) {
+
+                                            colValue_float = Float.parseFloat(splits2[m]);
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_curriculum(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setFloat(1, colValue_float);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("TINYINT")) {
+
+                                            colValue_int = Integer.parseInt(splits2[m]);
+
+                                            pst = con.prepareStatement("insert ignore into " + pname1 + "_" + year + "_curriculum(Sno)values(?)");
+                                            pst.setInt(1, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            pst = con.prepareStatement("UPDATE " + pname1 + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "=? WHERE Sno=?");
+                                            pst.setInt(1, colValue_int);
+                                            pst.setInt(2, q);
+                                            ri = pst.executeUpdate();
+                                            if (ri == 0) {
+                                                con.rollback(pointOne);
+
+                                            }
+                                            o++;
+
+                                        }
+
+                                    }
+                                    q++;
+                                }
+
+                                k++;
+                            }
+
+                            pst = con.prepareStatement("ALTER TABLE " + pname1 + "_" + year + "_curriculum ADD PRIMARY KEY(Semester,SubCode)");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+                            pst = con.prepareStatement("ALTER TABLE " + pname1 + "_" + year + "_curriculum DROP COLUMN Sno, DROP INDEX Sno");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+
+                            /*
+                             *#######################################end stream_year_curriculum table############################## 
+                             *
+                             * 
+                             * 
+                             *subject_data_stream_year table creation************************************
+                             * 
+                             *subjecttable table creation***********************************************
+                             * 
+                             */
+                            pst = con.prepareStatement("DROP TABLE IF EXISTS subject_data_" + pname1 + "_" + year + "");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+                            pst = con.prepareStatement("create table if not exists subject_data(subjId varchar(20),subjName varchar(100),credits int(20),semester varchar(20),primary key(subjId))");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+                            pst = con.prepareStatement("create table if not exists subject_data_" + pname1 + "_" + year + "(subjId varchar(20),subjName varchar(100),credits int(20),semester varchar(20),primary key(subjId))");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+                            pst = con.prepareStatement("create table if not exists subjecttable(Code varchar(20),Subject_Name varchar(100),credits varchar(20),type varchar(20),primary key(Code))");
+                            ri = pst.executeUpdate();
+                            if (ri == 0) {
+                                con.rollback(pointOne);
+
+                            }
+                            pst = con.prepareStatement("select * from " + pname1 + "_" + year + "_curriculum");
+
+                            ResultSet rs4 = pst.executeQuery();
+
+                            /*
+                             * find out column number for "Alias"
+                             */
+                            int ncol = rs4.getMetaData().getColumnCount();
+
+                            for (cn = 1; cn <= ncol; cn++) {
+
+                                if (rs4.getMetaData().getColumnName(cn).equals("Alias") == true) {
+                                    cn1 = cn;
+
+                                }
+
+                            }
+                            pst = con.prepareStatement("select * from " + pname1 + "_" + year + "_curriculum");
+
+                            ResultSet rs3 = pst.executeQuery();
+
+                            String pname3 = "";
+
+                            pname3 = pname1;
+
+                            while (rs3.next()) {
+
+                                pname1 = pname1.replace('_', '-');
+
+                                /*
+                                 * Alias if it is null.
+                                 */
+                                System.out.println("========================");
+                                if (rs3.getString(cn1) != null) {
+                                    pst = con.prepareStatement("insert ignore into subject_data values(?,?,?,?)");
+                                    pst.setString(1, rs3.getString(cn1));
+                                    pst.setString(2, rs3.getString(3));
+                                    pst.setString(3, rs3.getString(4));
+                                    pst.setString(4, pname1 + "-" + rs3.getString(1));
+
+                                    ri = pst.executeUpdate();
+                                    if (ri == 0) {
+                                        con.rollback(pointOne);
+
+                                    }
+                                    System.out.println("========================1");
+
+                                    pst = con.prepareStatement("insert ignore into subject_data_" + pname3 + "_" + year + " values(?,?,?,?)");
+                                    pst.setString(1, rs3.getString(cn1));
+                                    pst.setString(2, rs3.getString(3));
+                                    pst.setString(3, rs3.getString(4));
+                                    pst.setString(4, pname1 + "-" + rs3.getString(1));
+
+                                    ri = pst.executeUpdate();
+                                    if (ri == 0) {
+                                        con.rollback(pointOne);
+
+                                    }
+                                    System.out.println("========================2");
+                                    pst = con.prepareStatement("insert ignore into subjecttable values(?,?,?,?)");
+                                    pst.setString(1, rs3.getString(cn1));
+                                    pst.setString(2, rs3.getString(3));
+                                    pst.setString(3, rs3.getString(4));
+                                    pst.setString(4, "C");
+
+                                    ri = pst.executeUpdate();
+                                    if (ri == 0) {
+                                        con.rollback(pointOne);
+
+                                    }
+                                    System.out.println("========================3");
+
+                                } else {
+
+                                    pst = con.prepareStatement("insert ignore into subject_data values(?,?,?,?)");
+                                    pst.setString(1, rs3.getString(2));
+                                    pst.setString(2, rs3.getString(3));
+                                    pst.setString(3, rs3.getString(4));
+                                    pst.setString(4, pname1 + "-" + rs3.getString(1));
+
+                                    ri = pst.executeUpdate();
+                                    if (ri == 0) {
+                                        con.rollback(pointOne);
+
+                                    }
+
+                                    pst = con.prepareStatement("insert ignore into subject_data_" + pname3 + "_" + year + " values(?,?,?,?)");
+                                    pst.setString(1, rs3.getString(2));
+                                    pst.setString(2, rs3.getString(3));
+                                    pst.setString(3, rs3.getString(4));
+                                    pst.setString(4, pname1 + "-" + rs3.getString(1));
+
+                                    ri = pst.executeUpdate();
+                                    if (ri == 0) {
+                                        con.rollback(pointOne);
+
+                                    }
+                                    pst = con.prepareStatement("insert ignore into subjecttable values(?,?,?,?)");
+                                    pst.setString(1, rs3.getString(2));
+                                    pst.setString(2, rs3.getString(3));
+                                    pst.setString(3, rs3.getString(4));
+                                    pst.setString(4, "C");
+
+                                    ri = pst.executeUpdate();
+                                    if (ri == 0) {
+                                        con.rollback(pointOne);
+
+                                    }
+                                }
+                            }
+                            z++;
+                            con.commit();
+                            out.println("<h3>" + pname3 + " added successfully. </h3>");
+
+                        } catch (Exception e) {
+                            con.rollback(pointOne);
+                            e.printStackTrace();
+                            System.out.println(e);
+                            System.out.println("Transaction rollback!!!");
+                        }
+                    } /*##########################################################################################################
+                 * 
+                 * 
+                 * phd....
+                 * 
+                 * 
+                 * #####################################################starting############################################
+                 */ else {
+
+                    try {
+                        System.out.println("inside phd1");
+                        String realPath = getServletContext().getRealPath("/");
+
+                        File f3 = new File(realPath + "/" + saveFile);
+
+                        File f4 = new File("/var/lib/mysql/phd/" + saveFile);
+
+                        Statement st3 = con2.createStatement();
+
+                        Statement st4 = con2.createStatement();
+
+                        Statement st6 = con.createStatement();
+                        System.out.println("inside phd2");
+
+                        st3.executeUpdate("create table if not exists " + pname + "_curriculumversions(Year int NOT NULL ,Curriculum_name varchar(200),primary key(Year))");
+
+                        st3.executeUpdate("insert ignore into " + pname + "_curriculumversions(Year,Curriculum_name)values('" + year + "','" + pname1 + "_" + year + "_curriculum')");
+                        st3.executeUpdate("DROP TABLE IF EXISTS " + pname + "_" + year + "_currrefer");
+                        st3.executeUpdate("create table if not exists " + pname + "_" + year + "_currrefer(Sno int NOT NULL, UNIQUE(Sno)) ");
+
+                        System.out.println("inside phd3");
+                        /*
+                         * 
+                         *creating PhD_currrefer table*********************************************** 
+                         * 
+                         */
+                        int k3 = 2;
+
+                        BufferedReader br = new BufferedReader(new FileReader(f3));
+
+                        String line, line1;
+
+                        while ((line = br.readLine()) != null) {
+
+                            if (k3 > 1 && k3 < 3) {
+                                System.out.println("inside phd4");
+                                String[] cval = line.split(",");
+
+                                n = cval.length;
+
+                                for (l = 0; l < n; l++) {
+
+                                    String originalString = cval[l];
+
+                                    int startIndex = originalString.indexOf("(");
+
+                                    int endIndex = originalString.indexOf(")");
+
+                                    colName = originalString.substring(0, startIndex);
+
+                                    colDataType = originalString.substring(startIndex + 1, endIndex);
+
+                                    if (colDataType.equalsIgnoreCase("varchar")) {
+
+                                        coltype = dataType[0];
+
+                                    } else if (colDataType.equalsIgnoreCase("int")) {
+
+                                        coltype = dataType[1];
+
+                                    } else if (colDataType.equalsIgnoreCase("FLOAT")) {
+
+                                        coltype = dataType[2];
+
+                                    } else if (colDataType.equalsIgnoreCase("boolean")) {
+
+                                        coltype = dataType[3];
+                                    }
+                                    if (coltype.equalsIgnoreCase("boolean")) {
+                                        String sql = "Alter table " + pname + "_" + year + "_currrefer Add " + colName + " " + coltype + " DEFAULT '0'";
+
+                                        st3.executeUpdate(sql);
+                                    }
+                                    String sql = "Alter table " + pname + "_" + year + "_currrefer Add " + colName + " " + coltype + "";
+
+                                    st3.executeUpdate(sql);
+
+                                }
+                            }
+                            k3++;
+                        }
+
+                        //updating PhD_year_currrefer table******************************
+                        ResultSet rs = st4.executeQuery("select * from " + pname + "_" + year + "_currrefer");
+                        ResultSetMetaData metadata = rs.getMetaData();
+
+                        try {
+                            BufferedReader br1 = new BufferedReader(new FileReader(f3));
+
+                            int q = 0, k = 0;
+
+                            while ((line1 = br1.readLine()) != null) {
+
+                                if (k > 0 && k < 2) {
+
+                                    int o = 2;
+                                    String[] splits = line1.split(",");
+
+                                    n1 = splits.length;
+
+                                    for (m = 0; m < n1; m++) {
+
+                                        colDataType1 = metadata.getColumnTypeName(o);
+
+                                        System.out.println(colDataType1);
+
+                                        //giving data type to columns..dynamically*******************
+                                        if (colDataType1.equalsIgnoreCase("varchar")) {
+
+                                            colValue_string = splits[m];
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_currrefer(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "='" + colValue_string + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("integer")) {
+
+                                            colValue_int = Integer.parseInt(splits[m]);
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_currrefer(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "='" + colValue_int + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("DOUBLE")) {
+
+                                            colValue_float = Float.parseFloat(splits[m]);
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_currrefer(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "='" + colValue_float + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("TINYINT")) {
+
+                                            colValue_int = Integer.parseInt(splits[m]);
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_currrefer(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_currrefer SET " + metadata.getColumnName(o) + "='" + colValue_int + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        }
+
+                                    }
+                                    q++;
+                                }
+
+                                k++;
+                            }
+
+                        } catch (Exception e) {
+                            System.out.println(e);
+                        }
+
+                        st3.executeUpdate("ALTER TABLE " + pname + "_" + year + "_currrefer ADD PRIMARY KEY(Cores)");
+
+                        st3.executeUpdate("ALTER TABLE " + pname + "_" + year + "_currrefer DROP COLUMN Sno, DROP INDEX Sno");
+
+
+                        /*
+                         * 
+                         *###################### End for PhD_year_currrefer table ###############################
+                         * 
+                         * 
+                         * 
+                         * 
+                         * ##################### Starting for PhD_year_curriculum table ##########################
+                         */
+                        st3.executeUpdate("DROP TABLE IF EXISTS " + pname + "_" + year + "_curriculum");
+
+                        st3.executeUpdate("create table if not exists " + pname + "_" + year + "_curriculum(Sno int NOT NULL, UNIQUE(Sno)) ");
+                        // adding column to stream_year_curriculum table dynamically, by reading values from curriculum csv file.*******
+
+                        int k4 = 0;
+
+                        BufferedReader br1 = new BufferedReader(new FileReader(f3));
+
+                        System.out.println("************Inside phd curriculum*******");
+
+                        String line3 = null, line4 = null;
+
+                        while ((line3 = br1.readLine()) != null) {
+
+                            if (k4 > 1 && k4 < 3) {
+
+                                String[] cval1 = line3.split(",");//split line with ','
+
+                                System.out.println(cval1[0]);
+
+                                n = cval1.length;
+
+                                for (l = 0; l < n; l++) {
+
+                                    String originalString = cval1[l];
+
+                                    int startIndex = originalString.indexOf("(");
+
+                                    int endIndex = originalString.indexOf(")");
+
+                                    colName = originalString.substring(0, startIndex);
+
+                                    colDataType = originalString.substring(startIndex + 1, endIndex);
+
+                                    System.out.println(colName);
+
+                                    if (colDataType.equalsIgnoreCase("varchar")) {
+
+                                        coltype = dataType[0];
+
+                                    } else if (colDataType.equalsIgnoreCase("int")) {
+
+                                        coltype = dataType[1];
+
+                                    } else if (colDataType.equalsIgnoreCase("FLOAT")) {
+
+                                        coltype = dataType[2];
+
+                                    } else if (colDataType.equalsIgnoreCase("boolean")) {
+
+                                        coltype = dataType[3];
+                                    }
+                                    if (coltype.equalsIgnoreCase("boolean")) {
+                                        String sql = "Alter table " + pname + "_" + year + "_curriculum Add " + colName + " " + coltype + " DEFAULT '0'";
+
+                                        st3.executeUpdate(sql);
+                                    } else {
+                                        String sql = "Alter table " + pname + "_" + year + "_curriculum Add " + colName + " " + coltype + "";
+
+                                        st3.executeUpdate(sql);
+                                    }
+                                }
+                            }
+
+                            k4++;
+                        }
+
+                        //updating PhD_year_curriculum table************************************************
+                        ResultSet rs2 = st4.executeQuery("select * from " + pname + "_" + year + "_curriculum");
+
+                        ResultSetMetaData metadata1 = rs2.getMetaData();
+
+                        try {
+                            BufferedReader br3 = new BufferedReader(new FileReader(f3));
+
+                            int q = 0, k = 0, minSemValue;
+
+                            while ((line1 = br3.readLine()) != null) {
+
+                                if (k > 2) {
+                                    System.out.println("HERE");
+                                    int o = 2;
+
+                                    String[] splits2 = line1.split(",");
+
+                                    n1 = splits2.length;
+
+                                    System.out.println(splits2[0]);
+
+                                    for (m = 0; m < n1; m++) {
+
+                                        colDataType1 = metadata1.getColumnTypeName(o);
+
+                                        System.out.println(colDataType1);
+
+                                        if (colDataType1.equalsIgnoreCase("varchar")) {
+
+                                            colValue_string = splits2[m];
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_curriculum(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "='" + colValue_string + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("integer")) {
+
+                                            colValue_int = Integer.parseInt(splits2[m]);
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_curriculum(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "='" + colValue_int + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("DOUBLE")) {
+
+                                            colValue_float = Float.parseFloat(splits2[m]);
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_curriculum(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "='" + colValue_float + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        } else if (colDataType1.equalsIgnoreCase("TINYINT")) {
+
+                                            colValue_int = Integer.parseInt(splits2[m]);
+
+                                            st3.executeUpdate("insert ignore into " + pname + "_" + year + "_curriculum(Sno)values('" + q + "')");
+
+                                            st3.executeUpdate("UPDATE " + pname + "_" + year + "_curriculum SET " + metadata1.getColumnName(o) + "='" + colValue_int + "' WHERE Sno='" + q + "'");
+
+                                            o++;
+
+                                        }
+
+                                    }
+                                    q++;
+                                }
+
+                                k++;
+                            }
+                        } catch (Exception e) {
+                            System.out.println(e);
+                        }
+
+                        System.out.println("OUT SIDE1");
+
+                        st3.executeUpdate("ALTER TABLE " + pname + "_" + year + "_curriculum ADD PRIMARY KEY(Subject_ID)");
+
+                        System.out.println("OUT SIDE");
+                        st3.executeUpdate("ALTER TABLE " + pname + "_" + year + "_curriculum DROP COLUMN Sno, DROP INDEX Sno");
+
+                        out.println("<h3>" + saveFile + " :: file uploaded successfully  for " + pname + "-" + year + " </h3>");
+
+                        /*
+                         * 
+                         *##################### End for PhD_year_curriculum table ############################### 
+                         * 
+                         */
+                    } catch (Exception e) {
+                        System.out.println(e);
+                    }
+
+                }
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+        %>
+    </body>
+</html>

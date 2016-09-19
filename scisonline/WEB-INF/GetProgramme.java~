@@ -1,0 +1,335 @@
+package getProgramme;
+
+import java.sql.*;
+import java.util.Calendar;
+
+public class GetProgramme {
+
+    static Connection con = null;
+    ResultSet rs1 = null;
+    PreparedStatement pst = null;
+    int SYEAR_PREFIX = 0; // contians batch year starting location in the string.
+    int EYEAR_PREFIX = 0; // contians batch year ending location in the string.
+
+    int SPRGM_PREFIX = 0; //Contains program code start
+    int EPRGM_PREFIX = 0; //Contains program code end
+    int batchYear = 0;
+    String stdId = null;
+    String CENTURY = null;
+    String studentName = null;
+    String programmeName = null;
+
+    static {
+        try {
+            Class.forName("com.mysql.jdbc.Driver").newInstance();
+            con = DriverManager.getConnection("jdbc:mysql://localhost:3306/dcis_attendance_system", "root", "");
+        } catch (ClassNotFoundException | IllegalAccessException | InstantiationException | SQLException ex) {
+
+        }
+    }
+
+    //*******************getProgramme name by not required stream and by status*************
+    public ResultSet getProgramme(int status, String notRequiredStream)// only required stream programme can retrives.
+    {
+        try {
+            notRequiredStream = notRequiredStream.replace('_', '-');
+            notRequiredStream = notRequiredStream.replace('_', '-');
+            pst = con.prepareStatement("select Programme_name from programme_table where not Programme_group=? and Programme_status=?");
+            pst.setString(1, notRequiredStream);
+            pst.setInt(2, status);
+            rs1 = pst.executeQuery();
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+
+    }
+
+    //**************************get distinct stream names *****************************
+    public ResultSet getStream() {
+        try {
+            pst = con.prepareStatement("select DISTINCT Programme_group from programme_table");
+            rs1 = pst.executeQuery();
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+
+    }
+
+    //********************************************************
+    public ResultSet getStream(String notRequiredStream) {
+        try {
+            notRequiredStream = notRequiredStream.replace('_', '-');
+            notRequiredStream = notRequiredStream.replace('_', '-');
+            pst = con.prepareStatement("select DISTINCT Programme_group from programme_table where not Programme_group=?");
+            pst.setString(1, notRequiredStream);
+            rs1 = pst.executeQuery();
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+
+    }
+    //*******************************getProgramme names by stream and status**********
+
+    public ResultSet getProgramme(String stream, int status)// status for active programme is 1 and deleted programme is 0
+    {
+        try {
+            stream = stream.replace('_', '-');
+            pst = con.prepareStatement("select Programme_name from programme_table where Programme_group=? and Programme_status=?");
+            pst.setString(1, stream);
+            pst.setInt(2, status);
+            rs1 = pst.executeQuery();
+
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+
+    }
+
+    //**************************getProgramme name by status*********
+    public ResultSet getProgramme(int status) {
+        try {
+            pst = con.prepareStatement("select Programme_name from programme_table where Programme_status=?");
+            pst.setInt(1, status);
+            rs1 = pst.executeQuery();
+
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+    }
+
+    //*********************get all programme names********  
+    public ResultSet getProgramme() {
+        try {
+            pst = con.prepareStatement("select Programme_name from programme_table");
+            rs1 = pst.executeQuery();
+
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+
+    }
+
+    //************to get stream by programme name************
+    public ResultSet programmeStream(String programmeName) {
+        
+        try {
+            pst = con.prepareStatement("select Programme_group,Programme_code,Programme_status from programme_table where Programme_name=?");
+            pst.setString(1, programmeName);
+            rs1 = pst.executeQuery();
+           
+        } catch (SQLException ex) {
+
+        }
+        return rs1;
+
+    }
+
+    //****************get latest curriculum year for a programme *****************
+    public int latestCurriculumYear(String programmeName) {
+        int curriculumYear, latestYear = 0;
+        try {
+            programmeName=programmeName.replace('-','_');
+            Calendar cal = Calendar.getInstance();
+            int curYear = Calendar.getInstance().get(Calendar.YEAR);
+            pst = con.prepareStatement("select * from " + programmeName + "_curriculumversions order by Year desc");
+            rs1 = pst.executeQuery();
+            while (rs1.next()) {
+                curriculumYear = rs1.getInt(1);
+                if (curriculumYear <= curYear) {
+
+                    latestYear = curriculumYear;
+                    break;
+                }
+            }
+        } catch (SQLException ex) {
+        }
+        return latestYear;
+    }
+
+    //***********************************************************
+    //****************get latest curriculum year for a programme *****************
+    public int latestCurriculumYear(String programmeName, int batchYear) {
+        int CurriculumYear, latestYear = 0;
+        try {
+            programmeName=programmeName.replace('-','_');
+            pst = con.prepareStatement("select * from " + programmeName + "_curriculumversions order by Year desc");
+            rs1 = pst.executeQuery();
+            while (rs1.next()) {
+                CurriculumYear = rs1.getInt(1);
+                if (CurriculumYear <= batchYear) {
+
+                    latestYear = CurriculumYear;
+                    break;
+                }
+            }
+        } catch (SQLException ex) {
+        }
+        return latestYear;
+    }
+
+    public String studentProgramme(String studentId) {
+
+        try {
+
+            /*   We will get the university name from the initialization, and it will stored in the  "curr_univ". 
+             *   In this page we will have all the universities student id parsing schema,
+             *   for example :  
+             *                  Univerisity of Hyderabad
+             *                  student id : 12mcmi28   
+             *                               01234567
+             * 
+             *                               12--> year                          (0 to 1)     
+             *                               mc--->MTech group                   (2 to 3)
+             *                               mi---->programe code:  MTech-AI     (4 to 5)
+             *                               28----> roll number.                (6 to 7)
+       
+             String curr_univ = "Univerisity of Hyderabad"; // this will contains current univerisity name.
+             */
+            String curr_univ = "Univerisity of Hyderabad";
+            CENTURY = "20"; // FOR 20TH CENTURY GIVE 20. eg : 2000,2001,.. 2014,..
+
+            if (curr_univ.equalsIgnoreCase("Univerisity of Hyderabad")) {
+                SYEAR_PREFIX = 0;
+                EYEAR_PREFIX = 1;
+
+                SPRGM_PREFIX = 4;
+                EPRGM_PREFIX = 5;
+            } else if (curr_univ.equalsIgnoreCase("JNTU HYDERABAD")) {
+                // student id example formate : 08 49 1A0 5C2
+                //                              01 23 456 789                              
+                SYEAR_PREFIX = 0;
+                EYEAR_PREFIX = 1;
+
+                SPRGM_PREFIX = 4; // Contains program code start
+                EPRGM_PREFIX = 6;  //Contains program code end
+
+            }
+
+            // After adding all the universities, at final line increment the end positions, since substring we have to give end position +1;
+            // mandatory line 
+            EPRGM_PREFIX = EPRGM_PREFIX + 1;
+            EYEAR_PREFIX = EYEAR_PREFIX + 1;
+
+            /* 
+             * Now you can use the above prefixes to get batch year, programe name by using substring on the student id.\
+             * example :  student_id ="12mcmi29.
+             *  String PROGRAMME_NAME = student_id.substring(SPRGM_PREFIX,EPRGM_PREFIX);
+             int   BATCH_YEAR     =Integer.parseInt( CENTURY+student_id.substring(SYEAR_PREFIX,EYEAR_PREFIX));
+             *     
+             */
+            String programmeGroup = studentId.substring(SPRGM_PREFIX, EPRGM_PREFIX);
+            pst = con.prepareStatement("select Programme_name from programme_table where Programme_code=?");
+            pst.setString(1, programmeGroup);
+            rs1 = pst.executeQuery();
+            if (rs1.next()) {
+
+                programmeName = rs1.getString(1);
+
+            }
+        } catch (SQLException ex) {
+        }
+
+        return programmeName;
+    }
+
+   
+
+    public int studentBatchYear(String studentId) {
+
+        /*   We will get the university name from the initialization, and it will stored in the  "curr_univ". 
+         *   In this page we will have all the universities student id parsing schema,
+         *   for example :  
+         *                  Univerisity of Hyderabad
+         *                  student id : 12mcmi28   
+         *                               01234567
+         * 
+         *                               12--> year                          (0 to 1)     
+         *                               mc--->MTech group                   (2 to 3)
+         *                               mi---->programe code:  MTech-AI     (4 to 5)
+         *                               28----> roll number.                (6 to 7)
+       
+         String curr_univ = "Univerisity of Hyderabad"; // this will contains current univerisity name.
+         */
+        String curr_univ = "Univerisity of Hyderabad";
+        CENTURY = "20"; // FOR 20TH CENTURY GIVE 20. eg : 2000,2001,.. 2014,..
+
+        if (curr_univ.equalsIgnoreCase("Univerisity of Hyderabad")) {
+            SYEAR_PREFIX = 0;
+            EYEAR_PREFIX = 1;
+
+            SPRGM_PREFIX = 4;
+            EPRGM_PREFIX = 5;
+        } else if (curr_univ.equalsIgnoreCase("JNTU HYDERABAD")) {
+            // student id example formate : 08 49 1A0 5C2
+            //                              01 23 456 789                              
+            SYEAR_PREFIX = 0;
+            EYEAR_PREFIX = 1;
+
+            SPRGM_PREFIX = 4; // Contains program code start
+            EPRGM_PREFIX = 6;  //Contains program code end
+
+        }
+
+        // After adding all the universities, at final line increment the end positions, since substring we have to give end position +1;
+        // mandatory line 
+        EPRGM_PREFIX = EPRGM_PREFIX + 1;
+        EYEAR_PREFIX = EYEAR_PREFIX + 1;
+
+        /* 
+         * Now you can use the above prefixes to get batch year, programe name by using substring on the student id.\
+         * example :  student_id ="12mcmi29.
+         *  String PROGRAMME_NAME = student_id.substring(SPRGM_PREFIX,EPRGM_PREFIX);
+         int   BATCH_YEAR     =Integer.parseInt( CENTURY+student_id.substring(SYEAR_PREFIX,EYEAR_PREFIX));
+         *     
+         */
+        batchYear = Integer.parseInt(CENTURY + studentId.substring(SYEAR_PREFIX, EYEAR_PREFIX));
+        try {
+
+            programmeName = studentProgramme(stdId);
+            programmeName=programmeName.replace('-','_');
+            for (int j = 0; j < 2; j++) {
+
+                String table = programmeName + "_" + batchYear;       //current st yr
+
+                pst = con.prepareStatement("select StudentName from " + table + " where StudentId=?");
+                pst.setString(1, stdId);
+                rs1 = pst.executeQuery();
+
+                if (rs1.next()) {
+                    studentName = rs1.getString(1);
+                    break;
+                }
+                batchYear = batchYear + 1;
+            }
+        } catch (SQLException ex) {
+        }
+        return batchYear;
+    }
+
+    public String studentName(String studentId) {
+
+        batchYear = studentBatchYear(studentId);
+        programmeName = studentProgramme(studentId);
+        programmeName=programmeName.replace('-','_');
+        try {
+            String table = programmeName + "_" + batchYear;       //current st yr
+
+            pst = con.prepareStatement("select StudentName from " + table + " where StudentId=?");
+            pst.setString(1, stdId);
+            rs1 = pst.executeQuery();
+
+            if (rs1.next()) {
+                studentName = rs1.getString(1);
+            }
+        } catch (SQLException ex) {
+        }
+
+        return studentName;
+    }
+}

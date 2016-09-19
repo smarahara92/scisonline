@@ -1,0 +1,42 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 7 Apr, 2015, 9:59:37 AM
+    Author     : nwlab
+*/
+
+.style30 {color: #c2000d}
+            .style31 {color: white}
+            .style32 {color: green}
+            .heading
+            {
+                color: white;
+                background-color: #c2000d;
+            }
+            .border
+            {
+                background-color: #c2000d;
+            }
+            .pos_fixed
+            {
+                position:fixed;
+                bottom:0px;
+                background-color: #CCFFFF;
+                border-color: red;
+            }
+            .trigger:hover { 
+                background-color: yellow;
+            }
+            .trigger, .toggle {
+            //    padding: 0px;
+                text-align: center;
+                background-color: #ffffff;
+                border: solid 1px #c3c3c3;
+            }
+            .toggle {
+                padding: 10px;
+                display: none;
+            }
